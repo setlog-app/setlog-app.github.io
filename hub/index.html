@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Jidoka Lab — タク｜業務自動化の実装ログと、つくったもの</title>
+<meta name="description" content="AI Jidoka Lab（タク）のリンク集。n8n・GAS・AIを使った業務自動化の実装ログ、公開しているテンプレート、受託中のサービスをまとめています。">
+<meta property="og:title" content="AI Jidoka Lab — タク">
+<meta property="og:description" content="業務自動化の実装ログと、つくったもの。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://setlog-app.github.io/hub/">
+<style>
+  :root{
+    --bg:#ffffff; --fg:#151a21; --muted:#5b6472; --line:#e4e8ee;
+    --card:#f7f9fc; --accent:#2f5fe0; --accent-fg:#ffffff;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#101318; --fg:#e9edf3; --muted:#98a2b3; --line:#252b34;
+           --card:#171b22; --accent:#6d92ff; --accent-fg:#0b0e13; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",
+                   "Segoe UI",Meiryo,sans-serif;
+       line-height:1.75;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:640px;margin:0 auto;padding:48px 20px 72px}
+  header{margin-bottom:40px}
+  .name{font-size:1.5rem;font-weight:700;letter-spacing:.01em;margin:0 0 6px}
+  .tag{color:var(--muted);font-size:.95rem;margin:0}
+  .lead{margin:20px 0 0;font-size:1rem}
+  h2{font-size:.8rem;font-weight:700;letter-spacing:.14em;color:var(--muted);
+     text-transform:uppercase;margin:44px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  ul{list-style:none;margin:0;padding:0}
+  li{margin:0 0 10px}
+  a.item{display:block;padding:14px 16px;border:1px solid var(--line);border-radius:10px;
+         background:var(--card);color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
+  a.item:hover{border-color:var(--accent);transform:translateY(-1px)}
+  a.item .t{display:block;font-weight:600}
+  a.item .d{display:block;color:var(--muted);font-size:.88rem;margin-top:2px}
+  .primary{border-color:var(--accent)}
+  footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--line);
+         color:var(--muted);font-size:.82rem}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="name">AI Jidoka Lab ／ タク</p>
+    <p class="tag">n8n・GAS・AI で、業務のいちばん面倒なところだけ自動化する</p>
+    <p class="lead">
+      中小企業の問い合わせ対応・メール処理の自動化を実装しています。
+      作ったもの、詰まったところ、かかった費用は、そのまま公開しています。
+    </p>
+  </header>
+
+  <h2>読む</h2>
+  <ul>
+    <li><a class="item primary" href="https://note.com/ai_makase_lab" target="_blank" rel="noopener">
+      <span class="t">note ｜ AIまかせラボ</span>
+      <span class="d">AI に副業を任せる実験の作業ログ。うまくいかなかったことも書いています</span></a></li>
+  </ul>
+
+  <h2>使う（無料）</h2>
+  <ul>
+    <li><a class="item" href="https://n8n.io/creators/aijidokalab" target="_blank" rel="noopener">
+      <span class="t">n8n 公式テンプレートライブラリ</span>
+      <span class="d">公開しているワークフローの一覧</span></a></li>
+    <li><a class="item" href="https://n8n.io/workflows/17365-label-gmail-emails-by-priority-with-groq-llama-33/" target="_blank" rel="noopener">
+      <span class="t">Gmail を優先度で自動ラベリングする n8n ワークフロー</span>
+      <span class="d">Groq + Llama 3.3。そのままインポートして使えます</span></a></li>
+  </ul>
+
+  <h2>買う</h2>
+  <ul>
+    <li><a class="item" href="https://jidoka.gumroad.com/l/n8n-gmail-automation-pack" target="_blank" rel="noopener">
+      <span class="t">n8n Gmail Automation Pack</span>
+      <span class="d">Gumroad（英語）</span></a></li>
+    <li><a class="item" href="https://whop.com/ai-jidoka-lab/" target="_blank" rel="noopener">
+      <span class="t">AI Jidoka Lab on Whop</span>
+      <span class="d">同上（無料版あり）</span></a></li>
+  </ul>
+
+  <h2>頼む</h2>
+  <ul>
+    <li><a class="item" href="https://coconala.com/users/6200620" target="_blank" rel="noopener">
+      <span class="t">ココナラ（出品一覧）</span>
+      <span class="d">AI 検索の可視性監査／縦型ショート広告の制作／業務自動化の実装 ほか</span></a></li>
+    <li><a class="item" href="https://setlog-app.github.io/ai-jidoka-lab/" target="_blank" rel="noopener">
+      <span class="t">受付AI ｜ 問い合わせの一次返信を自動化</span>
+      <span class="d">リフォーム会社・工務店など、中小企業向け。無料で試作します</span></a></li>
+  </ul>
+
+  <footer>
+    お問い合わせ・ご相談は <a href="https://x.com/ai_makase_lab" target="_blank" rel="noopener">X（@ai_makase_lab）</a> の DM へ。<br>
+    &copy; 2026 AI Jidoka Lab
+  </footer>
+
+</div>
+</body>
+</html>
