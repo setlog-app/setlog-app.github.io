@@ -63,8 +63,10 @@
 <div class="row">
   <button onclick="runClinics()">Resolve entities</button>
   <button class="ghost" onclick="document.getElementById('clinicIn').value=FIXTURE_CLINICS;runClinics()">Reset fixtures</button>
+  <label class="sub" style="cursor:pointer"><input type="checkbox" id="useAlias" checked onchange="runClinics()"> use alias table</label>
   <span class="sub" id="clinicStat"></span>
 </div>
+<p class="sub"><strong>Toggle the alias table</strong> — that checkbox is the whole argument of this build. Off = pure romanisation + fuzzy matching, which is what you get if you let the algorithm decide everything at query time. On = the same algorithm with seven remembered aliases. Watch the entity count.</p>
 <div id="clinicOut"></div>
 
 <h2>2 · Review de-duplication</h2>
@@ -171,14 +173,21 @@ const KO_NOISE = ["성형외과의원","성형외과","피부과의원","피부�
 const EN_NOISE = ["plastic surgery","dermatology","aesthetic","clinic","hospital","medical","center","centre",
                   "gangnam","seoul","korea","branch","main"];
 
-function normalise(raw){
+/* Seeded once per clinic, then permanent. This is the durable half of the system:
+   the fuzzy matcher only ever proposes a merge — the alias table is what remembers it. */
+const ALIAS = {"아이디":"id","그랜드":"grand","뷰":"view","제이더블유":"jw",
+               "브라운":"braun","오라클":"oracle","바노바기":"banobagi"};
+
+function normalise(raw, useAlias){
   const trace = [];
   let s = raw.normalize("NFKC").toLowerCase().trim();
   for (const t of KO_NOISE) if (s.includes(t)){ s = s.split(t).join(" "); trace.push("ko:"+t); }
   for (const t of EN_NOISE) if (s.includes(t)){ s = s.split(t).join(" "); trace.push("en:"+t); }
   s = s.replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  let aliased = false;
+  if (useAlias) for (const k in ALIAS) if (s.includes(k)){ s = s.split(k).join(ALIAS[k]); aliased = true; trace.push("alias:"+k+"→"+ALIAS[k]); }
   const rom = romanise(s).replace(/[^a-z0-9]+/g,"");
-  return { key: rom, stripped: s.trim(), trace };
+  return { key: rom, stripped: s.trim(), trace, aliased };
 }
 
 /* ---------- similarity ---------- */
@@ -190,17 +199,17 @@ function simKey(a,b){
   return jaccard(grams(a,2),grams(b,2));
 }
 
-const AUTO=0.72, REVIEW=0.50;
+const AUTO=0.72, REVIEW=0.42;
 
-function cluster(items, simFn){
+function cluster(items, simFn, auto=AUTO, review=REVIEW){
   const parent = items.map((_,i)=>i);
   const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
   const union=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
   const edges=[];
   for(let i=0;i<items.length;i++) for(let j=i+1;j<items.length;j++){
     const s=simFn(items[i],items[j]);
-    if(s>=AUTO){ union(i,j); edges.push({i,j,s,band:"auto"}); }
-    else if(s>=REVIEW) edges.push({i,j,s,band:"review"});
+    if(s>=auto){ union(i,j); edges.push({i,j,s,band:"auto"}); }
+    else if(s>=review) edges.push({i,j,s,band:"review"});
   }
   const groups=new Map();
   items.forEach((_,i)=>{const r=find(i); if(!groups.has(r))groups.set(r,[]); groups.get(r).push(i);});
@@ -215,8 +224,9 @@ function parseLines(txt){
 }
 
 function runClinics(){
+  const useAlias = document.getElementById("useAlias").checked;
   const rows = parseLines(document.getElementById("clinicIn").value)
-                 .map(r=>({...r, ...normalise(r.val)}));
+                 .map(r=>({...r, ...normalise(r.val, useAlias)}));
   const {groups, edges} = cluster(rows, (a,b)=>simKey(a.key,b.key));
   groups.sort((a,b)=>b.length-a.length);
 
@@ -240,10 +250,12 @@ function runClinics(){
     html += `</table></div>`;
   }
   const missed = groups.filter(g=>g.length===1).length;
-  html += `<p class="sub" style="margin-top:12px">Note the singletons: those are the English-origin brands whose romanisation never converges (<code>geuraendeu</code> vs <code>grand</code>). That is not a bug to tune away with a lower threshold — lowering it merges unrelated clinics. It is the evidence for a persisted alias table.</p>`;
+  html += useAlias
+    ? `<p class="sub" style="margin-top:12px">With the alias table on, the English-origin brands collapse correctly: <code>아이디병원</code>, <code>ID Hospital</code> and <code>아이디 성형외과</code> land on one entity. Untick the box to see what pure romanisation gives you — the count jumps, because <code>그랜드 → geuraendeu</code> never converges on <code>grand</code>, and no threshold low enough to bridge that is safe.</p>`
+    : `<p class="sub" style="margin-top:12px">Alias table off. The extra entities are the English-origin brands whose romanisation never converges. This is not a bug to tune away with a lower threshold — lowering it starts merging unrelated clinics, which is the failure that silently corrupts ratings. It is the argument for storing aliases instead of recomputing them.</p>`;
   document.getElementById("clinicOut").innerHTML = html;
   document.getElementById("clinicStat").textContent =
-    `${rows.length} surface forms → ${groups.length} entities · ${missed} unresolved singletons · ${mid.length} escalations`;
+    `${rows.length} surface forms → ${groups.length} entities · ${missed} singletons · ${mid.length} escalations · alias table ${useAlias?"ON":"OFF"}`;
 }
 
 function runReviews(){
@@ -251,7 +263,9 @@ function runReviews(){
     ...r, norm: r.val.toLowerCase().replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()
   }));
   rows.forEach(r=>r.sh = grams(r.norm,5));
-  const {groups} = cluster(rows,(a,b)=>jaccard(a.sh,b.sh));
+  /* Lower auto-merge bar than the clinic pass: near-duplicate prose shares far fewer
+     5-shingles than you would guess once a few words are edited. Tuned on these fixtures. */
+  const {groups} = cluster(rows,(a,b)=>jaccard(a.sh,b.sh), 0.45, 0.28);
   groups.sort((a,b)=>b.length-a.length);
 
   let html="", suppressed=0;
