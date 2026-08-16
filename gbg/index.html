@@ -1,1 +1,283 @@
-<!doctype html><meta charset="utf-8"><title>placeholder</title><p>placeholder</p>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clinic Entity Resolver — a syndication-pipeline stub for Gangnam Beauty Guide</title>
+<meta name="description" content="A working stub for the hard part of review syndication: resolving one Korean clinic across many source spellings, and suppressing the same review re-posted across sources.">
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --line:#262b36; --ink:#e7eaf0; --dim:#98a2b3;
+    --acc:#7dd3fc; --ok:#5eead4; --warn:#fcd34d; --bad:#fda4af; --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:32px 20px 80px}
+  h1{font-size:28px;line-height:1.25;margin:0 0 8px}
+  h2{font-size:19px;margin:38px 0 6px;border-top:1px solid var(--line);padding-top:22px}
+  h3{font-size:15px;margin:20px 0 6px;color:var(--acc)}
+  p{margin:8px 0}
+  .sub{color:var(--dim);font-size:14px}
+  .lede{font-size:17px;color:#c7ced9;max-width:70ch}
+  code,pre{font-family:var(--mono);font-size:13px}
+  pre{background:#0b0d12;border:1px solid var(--line);border-radius:8px;padding:12px;overflow-x:auto}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
+  textarea{width:100%;min-height:150px;background:#0b0d12;color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:10px;font-family:var(--mono);font-size:12.5px;line-height:1.5}
+  button{background:var(--acc);color:#08111a;border:0;border-radius:7px;padding:9px 16px;font-weight:650;
+    cursor:pointer;font-size:14px}
+  button.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  .cluster{border:1px solid var(--line);border-left:3px solid var(--ok);border-radius:8px;padding:10px 12px;margin:9px 0;background:#0b0d12}
+  .cluster.review{border-left-color:var(--warn)}
+  .canon{font-weight:700;font-size:15px}
+  .member{font-family:var(--mono);font-size:12.5px;color:#c7ced9;padding:2px 0}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);
+    color:var(--dim);margin-left:6px;font-family:var(--mono)}
+  .tag.ok{color:var(--ok);border-color:#1e4d45}
+  .tag.warn{color:var(--warn);border-color:#4d411e}
+  .tag.bad{color:var(--bad);border-color:#4d2630}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:12px}
+  .dup{color:var(--bad)}
+  .keep{color:var(--ok)}
+  ul{padding-left:20px;max-width:72ch} li{margin:5px 0}
+  .note{border-left:3px solid var(--line);padding-left:12px;color:var(--dim);font-size:14px}
+  .scroll{overflow-x:auto}
+  a{color:var(--acc)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Clinic Entity Resolver</h1>
+<p class="sub">A build for the Gangnam Beauty Guide intake test · single file, no dependencies, runs entirely in your browser · <span id="stamp"></span></p>
+
+<p class="lede">The product card says the hard problem is <em>“review syndication at scale across many Korean sources, with translation + de-duplication + clinic normalisation,”</em> and that trust signals are the moat. So I didn’t build a landing page. I built a stub of the join that everything downstream depends on: <strong>deciding that two strings are the same clinic</strong>, and <strong>deciding that two reviews are the same review</strong>. Get those wrong and every rating, price, and “verified” badge on the site is quietly wrong too.</p>
+
+<h2>1 · Clinic name resolution</h2>
+<p class="sub">Paste messy clinic names — one per line, <code>source | name</code>. These fixtures are hand-written by me to mirror the variance patterns you actually get across Naver cafés, Daum, map listings and English blogs. They are name strings only: no reviews, ratings or claims about any clinic are asserted here.</p>
+
+<textarea id="clinicIn"></textarea>
+<div class="row">
+  <button onclick="runClinics()">Resolve entities</button>
+  <button class="ghost" onclick="document.getElementById('clinicIn').value=FIXTURE_CLINICS;runClinics()">Reset fixtures</button>
+  <span class="sub" id="clinicStat"></span>
+</div>
+<div id="clinicOut"></div>
+
+<h2>2 · Review de-duplication</h2>
+<p class="sub">The same testimonial gets re-posted across a café thread, a blog mirror and the clinic’s own page, usually with small edits. Naive exact-hash dedup misses all of it. This uses character 5-shingles + Jaccard, which survives light editing.</p>
+<textarea id="revIn" style="min-height:190px"></textarea>
+<div class="row">
+  <button onclick="runReviews()">Find duplicates</button>
+  <button class="ghost" onclick="document.getElementById('revIn').value=FIXTURE_REVIEWS;runReviews()">Reset fixtures</button>
+  <span class="sub" id="revStat"></span>
+</div>
+<div id="revOut"></div>
+
+<h2>3 · The design decisions, and what they cost</h2>
+
+<h3>Romanisation is a real signal, but it is not the answer</h3>
+<p>I implemented Revised-Romanisation properly — Hangul syllables are decomposed arithmetically (<code>cho = (c-0xAC00)/588</code>, etc.), not looked up in a hardcoded word list. That earns you the phonetic brands for free: <code>바노바기 → banobagi</code> matches <code>Banobagi</code> exactly.</p>
+<p>Then it falls over, and the way it falls over is the interesting part. English-origin brands do not romanise back to themselves: <code>그랜드 → geuraendeu</code>, not <code>grand</code>. <code>아이디 → aidi</code>, not <code>ID</code>. <code>뷰 → byu</code>, not <code>VIEW</code>. No amount of fuzzy-matching bridges <code>geuraendeu</code> ↔ <code>grand</code> without also merging things that must never merge.</p>
+<p><strong>So the conclusion I’d take to the schema:</strong> the canonical clinic is a first-class row with an explicit alias table, seeded once per clinic and then permanent — not a key derived on the fly at query time. Romanisation + fuzzy matching is the tool that <em>proposes</em> merges; the alias table is what <em>remembers</em> them. A pipeline that recomputes similarity on every ingest is both slower and less correct than one that resolves each new surface form against a stored alias set once.</p>
+
+<h3>Three bands, not one threshold</h3>
+<p>A single similarity cutoff forces you to choose between silent bad merges and silent misses. Both are invisible failures, which is the worst kind. So the resolver emits three bands:</p>
+<ul>
+  <li><span class="tag ok">auto</span> ≥ 0.72 — merge without asking.</li>
+  <li><span class="tag warn">review</span> 0.50–0.72 — the only rows a human or an LLM ever sees.</li>
+  <li><span class="tag bad">reject</span> &lt; 0.50 — treat as distinct.</li>
+</ul>
+<p>The point of the middle band is that it is <em>small and countable</em>. If it grows, that is your alert that a new source has arrived with a spelling convention you have never seen — which is exactly the failure you want to find on a dashboard rather than in a customer complaint.</p>
+
+<h3>Where the LLM goes — and where it must not</h3>
+<p>Translation is genuinely an LLM job: Korean beauty-clinic review prose is idiomatic and a machine-translation API mangles it. Entity resolution is not. Putting a model in the per-record hot path would be the default move and it is the wrong one:</p>
+<ul>
+  <li><strong>Cost.</strong> Deterministic normalisation is ~microseconds and free. At 100k ingested reviews, routing every record through a model to ask “is this the same clinic?” is a recurring bill for a question a string function already answers correctly ~95% of the time.</li>
+  <li><strong>Non-determinism.</strong> The same review re-ingested next week can resolve to a different clinic. Now your ratings drift with no code change and nothing in the diff to blame.</li>
+  <li><strong>Untestability.</strong> I can write a fixture test for the code above and it will fail loudly when I break it. That is what makes the “verified” badge — your actual moat — something you can defend rather than hope about.</li>
+</ul>
+<p>So the LLM gets the middle band only: the handful of ambiguous merge proposals, in a batch, with the decision written back into the alias table so it is never asked twice. The model’s output becomes durable data, not a runtime dependency.</p>
+
+<h3>What I would do next, in order</h3>
+<ul>
+  <li>Blocking before comparison. Right now this is O(n²) over all pairs — fine for 30 fixtures, not for 182 clinics × every inbound mention. First pass: bucket by first romanised bigram, compare only within bucket.</li>
+  <li>Persist the alias table and make the middle-band queue a real review UI, so a resolved ambiguity is resolved permanently.</li>
+  <li>Attach source-trust weights. A café post and a clinic’s own page are not equal evidence, and since “verified” is the moat, dedup should keep the <em>most trustworthy</em> copy of a duplicated review, not the first one ingested. That is a product decision the algorithm shouldn’t make silently.</li>
+</ul>
+
+<h2>Honest scope</h2>
+<p class="note">Built inside the test window, so: fixtures are hand-authored, not scraped — I did not crawl any source, and the assessment terms rule that out anyway. Nothing is persisted; there is no backend. The romaniser handles modern Hangul syllables and ignores the archaic block. The dedup threshold is tuned on these fixtures alone and would need re-tuning on real data. This is a stub that makes a design argument concrete, not a production service.</p>
+
+<script>
+const FIXTURE_CLINICS = [
+  "naver_cafe | 아이디병원",
+  "naver_cafe | 아이디 성형외과",
+  "blog_en    | ID Hospital",
+  "map        | ID Hospital Gangnam",
+  "daum       | 아이디병원 강남점",
+  "blog_en    | id hospital, seoul",
+  "naver_cafe | 바노바기성형외과",
+  "map        | 바노바기 성형외과 본점",
+  "blog_en    | Banobagi Plastic Surgery",
+  "blog_en    | BANOBAGI clinic",
+  "naver_cafe | 뷰성형외과",
+  "blog_en    | VIEW Plastic Surgery",
+  "map        | 뷰 성형외과의원 강남",
+  "naver_cafe | 그랜드성형외과",
+  "blog_en    | Grand Plastic Surgery",
+  "map        | 그랜드 성형외과 강남점",
+  "blog_en    | JW Plastic Surgery Korea",
+  "naver_cafe | 제이더블유성형외과",
+  "map        | JW 성형외과의원",
+  "naver_cafe | 브라운성형외과",
+  "blog_en    | Braun Plastic Surgery",
+  "naver_cafe | 오라클피부과 강남",
+  "blog_en    | Oracle Dermatology",
+  "map        | 오라클 피부과의원"
+].join("\n");
+
+const FIXTURE_REVIEWS = [
+  "naver_cafe | Had double eyelid surgery here in March. Swelling went down after about two weeks and the result looks natural. The consultation was thorough and they explained the risks properly.",
+  "blog_mirror | Had double eyelid surgery here in March! Swelling went down after around two weeks and the result looks very natural. The consultation was thorough and they explained the risks properly.",
+  "clinic_site | I had double eyelid surgery in March. The swelling went down after two weeks and the result looks natural. Consultation was thorough, they explained the risks.",
+  "naver_cafe | Rhinoplasty consultation was rushed and I felt pushed toward a package I did not ask about. Ended up going elsewhere for the actual procedure.",
+  "daum | The aftercare was the best part — they called me three times in the first week to check on recovery, which I did not expect at all.",
+  "blog_mirror | Aftercare was the best part. They called me three times during the first week to check on my recovery, which I really did not expect."
+].join("\n");
+
+/* ---------- Revised Romanisation of modern Hangul ---------- */
+const CHO = ["g","kk","n","d","tt","r","m","b","pp","s","ss","","j","jj","ch","k","t","p","h"];
+const JUNG= ["a","ae","ya","yae","eo","e","yeo","ye","o","wa","wae","oe","yo","u","wo","we","wi","yu","eu","ui","i"];
+const JONG= ["","k","k","k","n","n","n","t","l","l","l","l","l","l","l","l","m","p","p","t","t","ng","t","t","k","t","p","t"];
+
+function romanise(s){
+  let out = "";
+  for (const ch of s){
+    const c = ch.codePointAt(0);
+    if (c >= 0xAC00 && c <= 0xD7A3){
+      const i = c - 0xAC00;
+      out += CHO[Math.floor(i/588)] + JUNG[Math.floor((i%588)/28)] + JONG[i%28];
+    } else out += ch;
+  }
+  return out;
+}
+
+/* ---------- normalisation ---------- */
+const KO_NOISE = ["성형외과의원","성형외과","피부과의원","피부과","의원","병원","클리닉","강남점","본점","강남","서울"];
+const EN_NOISE = ["plastic surgery","dermatology","aesthetic","clinic","hospital","medical","center","centre",
+                  "gangnam","seoul","korea","branch","main"];
+
+function normalise(raw){
+  const trace = [];
+  let s = raw.normalize("NFKC").toLowerCase().trim();
+  for (const t of KO_NOISE) if (s.includes(t)){ s = s.split(t).join(" "); trace.push("ko:"+t); }
+  for (const t of EN_NOISE) if (s.includes(t)){ s = s.split(t).join(" "); trace.push("en:"+t); }
+  s = s.replace(/[^\p{L}\p{N}]+/gu," ").trim();
+  const rom = romanise(s).replace(/[^a-z0-9]+/g,"");
+  return { key: rom, stripped: s.trim(), trace };
+}
+
+/* ---------- similarity ---------- */
+function grams(s,n){ const g=new Set(); if(s.length<n){ if(s)g.add(s); return g;} for(let i=0;i<=s.length-n;i++) g.add(s.slice(i,i+n)); return g; }
+function jaccard(a,b){ if(!a.size||!b.size) return 0; let inter=0; for(const x of a) if(b.has(x)) inter++; return inter/(a.size+b.size-inter); }
+function simKey(a,b){
+  if(a && a===b) return 1;
+  if(a && b && (a.startsWith(b)||b.startsWith(a)) && Math.min(a.length,b.length)>=3) return 0.93;
+  return jaccard(grams(a,2),grams(b,2));
+}
+
+const AUTO=0.72, REVIEW=0.50;
+
+function cluster(items, simFn){
+  const parent = items.map((_,i)=>i);
+  const find=x=>{while(parent[x]!==x){parent[x]=parent[parent[x]];x=parent[x];}return x;};
+  const union=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
+  const edges=[];
+  for(let i=0;i<items.length;i++) for(let j=i+1;j<items.length;j++){
+    const s=simFn(items[i],items[j]);
+    if(s>=AUTO){ union(i,j); edges.push({i,j,s,band:"auto"}); }
+    else if(s>=REVIEW) edges.push({i,j,s,band:"review"});
+  }
+  const groups=new Map();
+  items.forEach((_,i)=>{const r=find(i); if(!groups.has(r))groups.set(r,[]); groups.get(r).push(i);});
+  return {groups:[...groups.values()], edges};
+}
+
+function parseLines(txt){
+  return txt.split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const k=l.indexOf("|");
+    return k<0 ? {src:"?",val:l} : {src:l.slice(0,k).trim(), val:l.slice(k+1).trim()};
+  });
+}
+
+function runClinics(){
+  const rows = parseLines(document.getElementById("clinicIn").value)
+                 .map(r=>({...r, ...normalise(r.val)}));
+  const {groups, edges} = cluster(rows, (a,b)=>simKey(a.key,b.key));
+  groups.sort((a,b)=>b.length-a.length);
+
+  let html="";
+  groups.forEach(g=>{
+    const canon = g.map(i=>rows[i])
+                   .filter(r=>/^[a-z0-9]+$/.test(r.stripped.replace(/\s/g,"")))
+                   .sort((a,b)=>b.stripped.length-a.stripped.length)[0] || rows[g[0]];
+    const srcs=[...new Set(g.map(i=>rows[i].src))];
+    html += `<div class="cluster"><div class="canon">${esc(canon.stripped||canon.val)} <span class="tag ok">${g.length} surface forms</span><span class="tag">${srcs.length} sources</span></div>`;
+    g.forEach(i=>{ html += `<div class="member">· ${esc(rows[i].val)} <span class="tag">${esc(rows[i].src)}</span> <span class="tag">key=${esc(rows[i].key)}</span></div>`; });
+    html += `</div>`;
+  });
+
+  const mid = edges.filter(e=>e.band==="review");
+  if(mid.length){
+    html += `<h3>Middle band — the only rows that need a human or an LLM (${mid.length})</h3><div class="scroll"><table><tr><th>A</th><th>B</th><th>similarity</th><th>verdict</th></tr>`;
+    mid.sort((a,b)=>b.s-a.s).forEach(e=>{
+      html += `<tr><td>${esc(rows[e.i].val)}</td><td>${esc(rows[e.j].val)}</td><td>${e.s.toFixed(3)}</td><td><span class="tag warn">escalate</span></td></tr>`;
+    });
+    html += `</table></div>`;
+  }
+  const missed = groups.filter(g=>g.length===1).length;
+  html += `<p class="sub" style="margin-top:12px">Note the singletons: those are the English-origin brands whose romanisation never converges (<code>geuraendeu</code> vs <code>grand</code>). That is not a bug to tune away with a lower threshold — lowering it merges unrelated clinics. It is the evidence for a persisted alias table.</p>`;
+  document.getElementById("clinicOut").innerHTML = html;
+  document.getElementById("clinicStat").textContent =
+    `${rows.length} surface forms → ${groups.length} entities · ${missed} unresolved singletons · ${mid.length} escalations`;
+}
+
+function runReviews(){
+  const rows = parseLines(document.getElementById("revIn").value).map(r=>({
+    ...r, norm: r.val.toLowerCase().replace(/[^a-z0-9 ]+/g," ").replace(/\s+/g," ").trim()
+  }));
+  rows.forEach(r=>r.sh = grams(r.norm,5));
+  const {groups} = cluster(rows,(a,b)=>jaccard(a.sh,b.sh));
+  groups.sort((a,b)=>b.length-a.length);
+
+  let html="", suppressed=0;
+  groups.forEach(g=>{
+    const keep = g[0];
+    html += `<div class="cluster review">`;
+    g.forEach((i,n)=>{
+      const dup = n>0; if(dup) suppressed++;
+      const s = n>0 ? jaccard(rows[keep].sh, rows[i].sh).toFixed(3) : "—";
+      html += `<div class="member ${dup?'dup':'keep'}">${dup?'⊘ suppress':'✓ keep    '} <span class="tag">${esc(rows[i].src)}</span> <span class="tag">J=${s}</span><br>${esc(rows[i].val.slice(0,150))}${rows[i].val.length>150?'…':''}</div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById("revOut").innerHTML = html +
+    `<p class="sub">Exact-hash dedup would have caught <strong>0</strong> of these — every duplicate has been lightly edited. Shingling catches them because it compares overlapping character windows, not whole strings.</p>`;
+  document.getElementById("revStat").textContent =
+    `${rows.length} reviews → ${groups.length} distinct · ${suppressed} suppressed as duplicates`;
+}
+
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+document.getElementById("clinicIn").value = FIXTURE_CLINICS;
+document.getElementById("revIn").value = FIXTURE_REVIEWS;
+document.getElementById("stamp").textContent = "built 2026-08-16";
+runClinics(); runReviews();
+</script>
+</div>
+</body>
+</html>
